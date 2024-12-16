@@ -1,0 +1,4 @@
+Flask==2.3.2
+flask-socketio==5.1.1
+requests==2.26.0
+structlog==21.2.0
