@@ -14,8 +14,9 @@
                 $('nav').removeClass('bg-danger');
                 $('h1').text('Race Ready');
             });
-            socket.on('delete', function (data) {
+            socket.on('deleted', function (data) {
                 $('#'+data.id).remove();
+                checkAllGreen();
             });
             function updateData(data) {
                 data.forEach(element => {
@@ -29,12 +30,20 @@
                     } else {
                         element.status = 'Not Ready';
                     }
+                    tds = "<td>"+element.text+"</td><td class='status bg-"+colour+"'>"+element.status+"</td>";
                     if ($('#'+element.id).length == 0) {
-                        $('tbody').append('<tr class="h1" id="'+element.id+'"><td>'+element.text+'</td><td class="status bg-'+colour+'">'+element.status+'</td></tr>');
+                        $('tbody').append('<tr class="h1" id="'+element.id+'">'+tds+'</tr>');
                     } else {
-                        $('#'+element.id).html('<td>'+element.text+'</td><td class="status bg-'+colour+'">'+element.status+'</td>');
+                        $('#'+element.id).html(tds);
                     }
                 });
+                checkAllGreen();
+                function rowclick () {
+                    socket.emit('toggle_state', {id: $(this).attr('id')});
+                };
+                $('table tr').off('click').on('click', rowclick);
+            }
+            function checkAllGreen() {
                 var allgreen = true;
                 $('table tr .status').each(function() {
                     if ($(this).text() != 'Ready') {
@@ -46,11 +55,7 @@
                 } else {
                     $('body').css('background-color', '');
                 }
-                function rowclick () {
-                    socket.emit('toggle_state', {id: $(this).attr('id')});
-                };
-                $('table tr').off('click').on('click', rowclick);
-            }
+            };
             socket.on('partial_data', function (data) {
                 updateData(data);
             });

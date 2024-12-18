@@ -23,6 +23,7 @@ def get_db_connection():
     con.row_factory = sqlite3.Row
     con.execute('CREATE TABLE IF NOT EXISTS actions (`id` INT PRIMARY KEY, `text` TEXT, `order` INT, `status` INT)')
     con.commit()
+    
     return con
 
 def get_current_git_tag():
@@ -125,6 +126,27 @@ def handle_down(data):
     con.commit()
     update_all_clients()
 
+@socketio.on('add')
+def handle_add(data):
+    log.info("Adding", data=data)
+    con = get_db_connection()
+    cur = con.cursor()
+    if 'text' not in data:
+        emit('error', 'Missing text')
+        return
+    max_id = cur.execute('SELECT MAX(`id`) FROM actions').fetchone()[0]
+    log.info("Max id", max_id=max_id)
+    if max_id is None:
+        max_id = 0
+    max_order = cur.execute('SELECT MAX(`order`) FROM actions').fetchone()[0]
+    if max_order is None:
+        max_order = 0
+    cur.execute('INSERT INTO actions VALUES (?, ?, ?, 0)', (max_id + 1, data['text'], max_order + 1))
+    con.commit()
+    cur.execute('SELECT * FROM actions WHERE `order` = ?', (max_order + 1,))
+    data = cursortodict(cur)[0]
+    update_all_clients(data=data)
+
 def update_all_clients(data=None):
     con = get_db_connection()
     cur = con.cursor()
@@ -144,18 +166,6 @@ def handle_message():
     data = cursortodict(cur)
     emit('all_data', data)
 
-@socketio.on('add')
-def handle_add(data):
-    log.info("Adding", data=data)
-    con = get_db_connection()
-    cur = con.cursor()
-    if 'text' not in data:
-        emit('error', 'Missing text')
-        return
-    cur.execute('INSERT INTO actions (`text`, `order`, `status`) VALUES (?, (SELECT MAX(`order`) + 1 FROM actions), 0)', (data['text'],))
-    con.commit()
-    update_all_clients(data=data)
-
 @socketio.on('delete')
 def handle_delete(data):
     log.info("Deleting", data=data)
@@ -166,7 +176,7 @@ def handle_delete(data):
         return
     cur.execute('DELETE FROM actions WHERE id = ?', (data['id'],))
     con.commit()
-    emit('deleted', data['id'], broadcast=True)
+    emit('deleted', {'id': data['id']}, broadcast=True)
 
 @socketio.on('reset_all')
 def handle_reset_all():

@@ -14,15 +14,25 @@
                 $('nav').removeClass('bg-danger');
                 $('h1').text('Race Ready Admin');
             });
-            socket.on('all_data', function (data) {
+            function updateData(data) {
                 data.forEach(element => {
-                    tds = '<td>'+element.id+'</td><td><input class="form-control" value="'+element.text+'"/></td><td>'+element.status+'</td><td>'+element.order+'</td><td class="fit"><button id="up" class="btn btn-info btn-sm">Up</button>  <button id="down" class="btn btn-info btn-sm">Down</button>  <button id="save" class="btn btn-success btn-sm">Save</button> <button id="delete" class="btn btn-danger btn-sm">Delete</button></td>';
+                    tds = '<td id="'+element.id+'">'+element.id+'</td><td><input class="form-control" value="'+element.text+'"/></td><td>'+element.status+'</td><td>'+element.order+'</td><td class="fit"><button id="up" class="btn btn-info btn-sm">Up</button>  <button id="down" class="btn btn-info btn-sm">Down</button>  <button id="save" class="btn btn-success btn-sm">Save</button> <button id="delete" class="btn btn-danger btn-sm">Delete</button></td>';
                     if ($('#'+element.id).length == 0) {
                         $('tbody').append('<tr id="'+element.id+'">'+tds+'</tr>');
                     } else {
                         $('#'+element.id).html(tds);
                     }
                 });
+            };
+            socket.on('partial_data', function (data) {
+                updateData(data);
+            });
+            socket.on('all_data', function (data) {
+                $('tbody').empty();
+                updateData(data);
+            });
+            socket.on('deleted', function (data) {
+                $('#'+data.id).remove();
             });
             $(document).on('click', '#up', function() {
                 var id = $(this).closest('tr').attr('id');
@@ -40,6 +50,9 @@
             $(document).on('click', '#delete', function() {
                 var id = $(this).closest('tr').attr('id');
                 socket.emit('delete', {id: id});
+            });
+            $(document).on('click', '#add', function() {
+                socket.emit('add', {text: 'New Item'});
             });
 
         </script>
@@ -63,6 +76,7 @@
                 <a href="/" class="btn btn-outline-warning my-2 my-sm-0" type="submit">Race Ready</a>
             </div>
         </nav>
+        <button id="add" class="btn btn-info">Add</button>
         <table class="table table-hover table-striped table">
             <thead><th>ID</th><th>Action</th><th>Status</th><th>Order</th><th></th></thead>
             <tbody>
