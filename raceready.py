@@ -138,11 +138,14 @@ def generate_companion_export():
                 },
                 "feedbacks": [
                     {
-                        "id": "cYieQrW86d36B-Uoe6qU7",
-                        "definitionId": "RaceReadyOverallState",
-                        "connectionId": "LKMfUhdXb1f2QGkvRrC5w",
+                        "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
+                        # definitionId is required in future
+                        # "definitionId": "RaceReadyState",
+                        # instance_id=connectionId in future
+                        "instance_id": "LKMfUhdXb1f2QGkvRrC5w",
                         "options": {},
-                        "type": "feedback",
+                        # type will be "feedback" in future
+                        "type": "RaceReadyOverallState",
                         "style": {"bgcolor": 65280, "color": 0},
                         "isInverted": False,
                     }
@@ -151,14 +154,17 @@ def generate_companion_export():
                     "0": {
                         "action_sets": {
                             "down": [
-                                {
-                                    "id": "8Ym4qOcFhSaR9ffQrV_fP",
-                                    "definitionId": "reset_all",
-                                    "connectionId": "LKMfUhdXb1f2QGkvRrC5w",
-                                    "options": {},
-                                    "type": "action",
-                                }
-                            ],
+                            {
+                                "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
+                                # action=definitionId in future
+                                "action": "reset_all",
+                                # instance=connectionId in future
+                                "instance": "LKMfUhdXb1f2QGkvRrC5w",
+                                "options": {},
+                                # type is required in future
+                                # "type": "action",
+                            },
+                        ],
                             "up": [],
                         },
                         "options": {"runWhileHeld": []},
@@ -194,10 +200,13 @@ def generate_companion_export():
             "feedbacks": [
                 {
                     "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                    "definitionId": "RaceReadyState",
-                    "connectionId": "LKMfUhdXb1f2QGkvRrC5w",
+                    # definitionId is required in future
+                    # "definitionId": "RaceReadyState",
+                    # instance_id=connectionId in future
+                    "instance_id": "LKMfUhdXb1f2QGkvRrC5w",
                     "options": {"id": str(action["id"])},
-                    "type": "feedback",
+                    # type will be "feedback" in future
+                    "type": "RaceReadyState",
                     "style": {"bgcolor": 65280, "color": 0},
                     "isInverted": False,
                 }
@@ -208,10 +217,13 @@ def generate_companion_export():
                         "down": [
                             {
                                 "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                                "definitionId": "toggle",
-                                "connectionId": "LKMfUhdXb1f2QGkvRrC5w",
+                                # action=definitionId in future
+                                "action": "toggle",
+                                # instance=connectionId in future
+                                "instance": "LKMfUhdXb1f2QGkvRrC5w",
                                 "options": {"id": str(action["id"])},
-                                "type": "action",
+                                # type is required in future
+                                # "type": "action",
                             },
                         ],
                         "up": [],
@@ -235,7 +247,7 @@ def generate_companion_export():
 
     # Prepare the export JSON
     export_json = {
-        "version": 7,
+        "version": 6,
         "type": "page",
         "page": {
             "name": "Race Ready",

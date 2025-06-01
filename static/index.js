@@ -36,7 +36,7 @@ function updateData(data) {
     function rowclick () {
         socket.emit('toggle_state', {id: $(this).attr('id')});
     };
-    $('table tr').off('click').on('click', rowclick);
+    $('table tr').off('click touchstart').on('click touchstart', rowclick);
 }
 function checkAllGreen() {
     var allgreen = true;
