@@ -15,14 +15,32 @@
             <div class="nav navbar-right"></div>
                 <a href="/" class="btn btn-outline-warning my-2 my-sm-0" type="submit">Race Ready</a>
             </div>
+            <select id="checklist-select" class="form-select" style="width:auto;display:inline-block"></select>
         </nav>
 
         <button id="add" class="btn btn-info">Add</button>
         <table class="table table-hover table-striped table">
             <thead><th>ID</th><th>Action</th><th>Status</th><th>Order</th><th></th></thead>
-            <tbody>
+            <tbody id="actions">
             </tbody>
         </table>
+
+        <div class="container mt-3">
+          <h3>Edit Checklists</h3>
+          <table class="table table-bordered" id="checklists-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th style="width: 180px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="checklists">
+              <!-- Checklist rows will be injected here -->
+            </tbody>
+          </table>
+          <button id="add-checklist-btn" class="btn btn-success btn-sm">Add Checklist</button>
+        </div>
 
         <footer class="footer">
             <div class="container">

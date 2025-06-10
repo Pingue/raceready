@@ -62,4 +62,23 @@ $().ready(function() {
     $('#reset-all').click(function() {
         socket.emit('reset_all');
     });
+    $.get('/checklists', function(data) {
+        var select = $('#checklist-select');
+        data.forEach(function(cl) {
+            select.append($('<option>', { value: cl.id, text: cl.name }));
+        });
+    });
+
+    $('#checklist-select').on('change', function() {
+        var checklist_id = $(this).val();
+        $.ajax({
+            url: '/set_checklist',
+            type: 'POST',
+            data: JSON.stringify({ checklist_id }),
+            contentType: 'application/json',
+            success: function() {
+                socket.emit('request_all_data');
+            }
+        });
+    });
 });

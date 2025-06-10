@@ -11,6 +11,7 @@ app = Flask(__name__)
 db_path = os.environ.get('DB_PATH', '/data/db.sqlite3')
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 log = structlog.get_logger()
+current_checklist_id = 1  # Default checklist
 
 def cursortodict(cursor):
     desc = cursor.description
@@ -22,9 +23,26 @@ def cursortodict(cursor):
 def get_db_connection():
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
-    con.execute('CREATE TABLE IF NOT EXISTS actions (`id` INT PRIMARY KEY, `text` TEXT, `order` INT, `status` INT)')
+    # Create checklists table if it doesn't exist
+    con.execute('CREATE TABLE IF NOT EXISTS checklists (id INTEGER PRIMARY KEY, name TEXT)')
+    # Check if checklists table is empty, and add a default entry if so
+    cur = con.cursor()
+    cur.execute('SELECT COUNT(*) FROM checklists')
+    if cur.fetchone()[0] == 0:
+        cur.execute('INSERT INTO checklists (name) VALUES (?)', ('Default',))
+        con.commit()
+    # Create actions table if it doesn't exist
+    con.execute('''
+        CREATE TABLE IF NOT EXISTS actions (
+            id INTEGER PRIMARY KEY,
+            text TEXT,
+            "order" INT,
+            status INT,
+            checklist_id INT,
+            FOREIGN KEY(checklist_id) REFERENCES checklists(id)
+        )
+    ''')
     con.commit()
-    
     return con
 
 def get_current_git_tag():
@@ -52,7 +70,7 @@ def toggle_by_title():
 
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT id, status FROM actions WHERE text = ?', (title,))
+    cur.execute('SELECT id, status FROM actions WHERE text = ? AND checklist_id = ?', (title, current_checklist_id))
     result = cur.fetchone()
 
     if result is None:
@@ -88,7 +106,7 @@ def get_action_title():
 
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT text FROM actions WHERE id = ?', (action_id,))
+    cur.execute('SELECT text FROM actions WHERE id = ? AND checklist_id = ?', (action_id, current_checklist_id))
     result = cur.fetchone()
     con.close()
 
@@ -105,7 +123,7 @@ def generate_companion_export():
     """HTTP route to generate a Bitfocus Companion page export JSON."""
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute("SELECT id, text FROM actions ORDER BY `order`")
+    cur.execute("SELECT id, text FROM actions WHERE checklist_id = ? ORDER BY `order`", (current_checklist_id,))
     actions = cur.fetchall()
     con.close()
 
@@ -408,7 +426,7 @@ def handle_add(data):
     max_order = cur.execute('SELECT MAX(`order`) FROM actions').fetchone()[0]
     if max_order is None:
         max_order = 0
-    cur.execute('INSERT INTO actions VALUES (?, ?, ?, 0)', (max_id + 1, data['text'], max_order + 1))
+    cur.execute('INSERT INTO actions VALUES (?, ?, ?, 0, ?)', (max_id + 1, data['text'], max_order + 1, current_checklist_id))
     con.commit()
     cur.execute('SELECT * FROM actions WHERE `order` = ?', (max_order + 1,))
     data = cursortodict(cur)[0]
@@ -419,7 +437,7 @@ def update_all_clients(data=None):
     cur = con.cursor()
     log.info("Updating all clients", data=data)
     if data is None:
-        cur.execute('SELECT * FROM actions ORDER BY `order`')
+        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
         data = cursortodict(cur)
         socketio.emit('all_data', data)
     else:
@@ -430,7 +448,7 @@ def update_all_clients(data=None):
 def handle_message():
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT * FROM actions ORDER BY `order`')
+    cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY `order`', (current_checklist_id,))
     data = cursortodict(cur)
     emit('all_data', data)
 
@@ -454,6 +472,75 @@ def handle_reset_all():
     cur.execute('UPDATE actions SET status = 0')
     con.commit()
     update_all_clients()
+
+@app.route('/checklists', methods=['GET'])
+def get_checklists():
+    con = get_db_connection()
+    cur = con.cursor()
+    cur.execute('SELECT * FROM checklists')
+    checklists = cursortodict(cur)
+    con.close()
+    return jsonify(checklists)
+
+@app.route('/set_checklist', methods=['POST'])
+def set_checklist():
+    global current_checklist_id
+    data = request.get_json()
+    checklist_id = data.get('checklist_id')
+    if not checklist_id:
+        return jsonify({'error': 'Missing checklist_id'}), 400
+    current_checklist_id = int(checklist_id)
+    # Reset all tasks for the new checklist
+    con = get_db_connection()
+    cur = con.cursor()
+    cur.execute('UPDATE actions SET status = 0;')
+    con.commit()
+    con.close()
+    update_all_clients()
+    return jsonify({'success': True})
+
+@app.route('/create_checklist', methods=['POST'])
+def create_checklist():
+    data = request.get_json()
+    name = data.get('name')
+    if not name:
+        return jsonify({'error': 'Missing checklist name'}), 400
+    con = get_db_connection()
+    cur = con.cursor()
+    cur.execute('INSERT INTO checklists (name) VALUES (?)', (name,))
+    con.commit()
+    checklist_id = cur.lastrowid
+    con.close()
+    return jsonify({'success': True, 'id': checklist_id, 'name': name}), 201
+
+@app.route('/rename_checklist', methods=['POST'])
+def rename_checklist():
+    data = request.get_json()
+    checklist_id = data.get('id')
+    name = data.get('name')
+    if not checklist_id or not name:
+        return jsonify({'error': 'Missing id or name'}), 400
+    con = get_db_connection()
+    cur = con.cursor()
+    cur.execute('UPDATE checklists SET name = ? WHERE id = ?', (name, checklist_id))
+    con.commit()
+    con.close()
+    return jsonify({'success': True})
+
+@app.route('/delete_checklist', methods=['POST'])
+def delete_checklist():
+    data = request.get_json()
+    checklist_id = data.get('id')
+    if not checklist_id:
+        return jsonify({'error': 'Missing id'}), 400
+    con = get_db_connection()
+    cur = con.cursor()
+    # Optionally: delete all actions for this checklist
+    cur.execute('DELETE FROM actions WHERE checklist_id = ?', (checklist_id,))
+    cur.execute('DELETE FROM checklists WHERE id = ?', (checklist_id,))
+    con.commit()
+    con.close()
+    return jsonify({'success': True})
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
