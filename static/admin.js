@@ -1,4 +1,3 @@
-
 function updateData(data) {
     console.log("Updating data");
     tbody = $('tbody#actions');
@@ -17,9 +16,11 @@ function updateData(data) {
 
 };
 
+var socket = io(); // Move socket to global scope
+
 
 function loadChecklistsTable() {
-    $.get('/checklists', function(data) {
+    socket.once('checklists', function(data) {
         console.log("Updating checklists")
         var tbody = $('tbody#checklists');
         console.log(tbody);
@@ -38,12 +39,12 @@ function loadChecklistsTable() {
             tbody.append(row);
         });
         console.log(tbody.length);
-
     });
+    
+    socket.emit('get_checklists');
 }
 
 $(document).ready(function() {
-    var socket = io();
     socket.on("disconnect", () => {
         $('nav').addClass('bg-danger');
         $('h1').text('RACE READY IS DISCONNECTED');
@@ -54,12 +55,25 @@ $(document).ready(function() {
         $('nav').removeClass('bg-danger');
         $('h1').text('Race Ready Admin');
     });
+    socket.on('error', function (message) {
+        console.error('Socket error:', message);
+    });
     socket.on('partial_data', function (data) {
         updateData(data);
     });
     socket.on('all_data', function (data) {
         $('tbody#actions').empty();
         updateData(data);
+        // Extract current checklist ID from the data and update dropdown
+        if (data.length > 0) {
+            var currentChecklistId = data[0].checklist_id;
+            var select = $('#checklist-select');
+            if (select.find('option').length > 0) {
+                select.val(currentChecklistId);
+                select.find('option').prop('selected', false);
+                select.find('option[value="' + currentChecklistId + '"]').prop('selected', true);
+            }
+        }
     });
     socket.on('deleted', function (data) {
         $('#'+data.id).remove();
@@ -87,15 +101,7 @@ $(document).ready(function() {
 
     $('#checklist-select').on('change', function() {
         var checklist_id = $(this).val();
-        $.ajax({
-            url: '/set_checklist',
-            type: 'POST',
-            data: JSON.stringify({ checklist_id }),
-            contentType: 'application/json',
-            success: function() {
-                socket.emit('request_all_data');
-            }
-        });
+        socket.emit('set_checklist', { checklist_id: checklist_id });
     });
 
     loadChecklistsTable();
@@ -152,14 +158,26 @@ $(document).ready(function() {
     });
 });
 function updateChecklistDropdown() {
-    $.get('/checklists', function(data) {
-        var select = $('#checklist-select');
-        if (select.length === 0) return; // Only update if dropdown exists
-        select.empty();
-        data.forEach(function(cl) {
-            select.append($('<option>', { value: cl.id, text: cl.name }));
+    // Simple approach - just get the data and update
+    socket.once('checklists', function(checklists) {
+        socket.once('current_checklist', function(currentData) {
+            console.log('Checklists loaded:', checklists);
+            console.log('Current checklist:', currentData);
+            var select = $('#checklist-select');
+            if (select.length === 0) return; // Only update if dropdown exists
+            select.empty();
+            checklists.forEach(function(cl) {
+                var option = $('<option>', { value: cl.id, text: cl.name });
+                if (cl.id == currentData.current_checklist_id) {
+                    option.attr('selected', 'selected');
+                }
+                select.append(option);
+            });
         });
+        socket.emit('get_current_checklist');
     });
+    
+    socket.emit('get_checklists');
 }
 
 

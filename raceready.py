@@ -1,5 +1,5 @@
 from threading import Lock
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from flask_socketio import SocketIO, emit
 import structlog
 import base64
@@ -120,167 +120,13 @@ import uuid
 
 @app.route("/companion_export", methods=["GET"])
 def generate_companion_export():
-    """HTTP route to generate a Bitfocus Companion page export JSON."""
-    con = get_db_connection()
-    cur = con.cursor()
-    cur.execute("SELECT id, text FROM actions WHERE checklist_id = ? ORDER BY `order`", (current_checklist_id,))
-    actions = cursortodict(cur)
-    con.close()
-
-    # Add normalised_index
-    for idx, action in enumerate(actions, start=1):
-        action['normalised_index'] = idx
-
-    # Prepare controls grid
-    controls = {
-        "0": {"0": {"type": "pageup"}},  # Row 0
-        "1": {"0": {"type": "pagenum"}},  # Row 1
-        "2": {"0": {"type": "pagedown"}},  # Row 2
-        "3": {  # Row 3
-            "0": {  # Overall status button
-                "type": "button",
-                "style": {
-                    "text": "RACE READY (reset)",
-                    "textExpression": False,
-                    "size": "auto",
-                    "png64": None,
-                    "alignment": "center:center",
-                    "pngalignment": "center:center",
-                    "color": 16777215,
-                    "bgcolor": 0,
-                    "show_topbar": "default",
-                },
-                "options": {
-                    "relativeDelay": False,
-                    "rotaryActions": False,
-                    "stepAutoProgress": True,
-                },
-                "feedbacks": [
-                    {
-                        "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                        "instance_id": "LKMfUhdXb1f2QGkvRrC5w",
-                        "options": {},
-                        "type": "RaceReadyOverallState",
-                        "style": {"bgcolor": 65280, "color": 0},
-                        "isInverted": False,
-                    }
-                ],
-                "steps": {
-                    "0": {
-                        "action_sets": {
-                            "down": [
-                                {
-                                    "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                                    "action": "reset_all",
-                                    "instance": "LKMfUhdXb1f2QGkvRrC5w",
-                                    "options": {},
-                                },
-                            ],
-                            "up": [],
-                        },
-                        "options": {"runWhileHeld": []},
-                    }
-                },
-            }
-        },
-    }
-
-    # Fill rows and columns with actions, using normalised_index for order
-    row = 0
-    col = 1
-    for action in actions:
-        button = {
-            "type": "button",
-            "style": {
-                "text": "$(raceready:actiontext" + str(action["id"]) + ")",
-                "textExpression": False,
-                "size": "auto",
-                "png64": None,
-                "alignment": "center:center",
-                "pngalignment": "center:center",
-                "color": 16777215,
-                "bgcolor": 0,
-                "show_topbar": "default",
-            },
-            "options": {
-                "relativeDelay": False,
-                "rotaryActions": False,
-                "stepAutoProgress": True,
-            },
-            "feedbacks": [
-                {
-                    "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                    "instance_id": "LKMfUhdXb1f2QGkvRrC5w",
-                    "options": {"normalised_index": str(action["normalised_index"])},
-                    "type": "RaceReadyState",
-                    "style": {"bgcolor": 65280, "color": 0},
-                    "isInverted": False,
-                }
-            ],
-            "steps": {
-                "0": {
-                    "action_sets": {
-                        "down": [
-                            {
-                                "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                                "action": "toggle_by_normalised_id",
-                                "instance": "LKMfUhdXb1f2QGkvRrC5w",
-                                "options": {"normalised_index": str(action["normalised_index"])},
-                            },
-                        ],
-                        "up": [],
-                    },
-                    "options": {"runWhileHeld": []},
-                }
-            },
-        }
-
-        # Add button to the grid
-        if str(row) not in controls:
-            controls[str(row)] = {}
-        controls[str(row)][str(col)] = button
-
-        # Move to the next column, and wrap to the next row if needed
-        col += 1
-        if col > 7:  # Max 8 columns (0-7)
-            col = 1
-            row += 1
-
-    # Prepare the export JSON
-    export_json = {
-        "version": 6,
-        "type": "page",
-        "page": {
-            "name": "Race Ready",
-            "controls": controls,
-            "gridSize": {"minColumn": 0, "maxColumn": 7, "minRow": 0, "maxRow": 3},
-        },
-        "instances": {
-            "LKMfUhdXb1f2QGkvRrC5w": {
-                "instance_type": "raceready",
-                "moduleVersionId": "dev",
-                "updatePolicy": "stable",
-                "sortOrder": 1,
-                "label": "raceready",
-                "isFirstInit": False,
-                "config": {
-                    "host": "192.168.10.10",
-                    "port": "5000"
-                },
-                "lastUpgradeIndex": -1,
-                "enabled": True
-            }
-        },
-        "oldPageNumber": 1,
-    }
-
-    # Force download with a specific filename
-    response = jsonify(export_json)
-    response.headers["Content-Disposition"] = (
-        "attachment; filename=raceready.companionconfig"
+    """HTTP route to serve the static Bitfocus Companion page export file."""
+    return send_from_directory(
+        'static',
+        'raceready.companionconfig',
+        as_attachment=True,
+        download_name='raceready.companionconfig'
     )
-    return response
-
 
 @socketio.on('connect')
 def handle_connect():
@@ -510,6 +356,10 @@ def get_checklists():
     con.close()
     return jsonify(checklists)
 
+@app.route('/current_checklist', methods=['GET'])
+def get_current_checklist():
+    return jsonify({'current_checklist_id': current_checklist_id})
+
 @app.route('/set_checklist', methods=['POST'])
 def set_checklist():
     global current_checklist_id
@@ -595,6 +445,117 @@ def handle_toggle_state_by_normalised(data):
         emit('success', action)
     except Exception as e:
         log.error("Error toggling state by normalised_index", error=str(e))
+        emit('error', 'Internal server error')
+
+@socketio.on('set_checklist')
+def handle_set_checklist(data):
+    """WebSocket handler for setting the current checklist."""
+    global current_checklist_id
+    log.info("Setting checklist", data=data)
+    checklist_id = data.get('checklist_id')
+    if not checklist_id:
+        emit('error', 'Missing checklist_id')
+        return
+    try:
+        current_checklist_id = int(checklist_id)
+        # Reset all tasks for the new checklist
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('UPDATE actions SET status = 0;')
+        con.commit()
+        con.close()
+        update_all_clients()
+    except Exception as e:
+        log.error("Error setting checklist", error=str(e))
+        emit('error', 'Internal server error')
+
+@socketio.on('get_current_checklist')
+def handle_get_current_checklist():
+    """WebSocket handler for getting the current checklist."""
+    emit('current_checklist', {'current_checklist_id': current_checklist_id})
+
+@socketio.on('get_checklists')
+def handle_get_checklists():
+    """WebSocket handler for getting all checklists."""
+    con = get_db_connection()
+    cur = con.cursor()
+    cur.execute('SELECT * FROM checklists')
+    checklists = cursortodict(cur)
+    con.close()
+    emit('checklists', checklists)
+
+@socketio.on('next_checklist')
+def handle_next_checklist():
+    """WebSocket handler for switching to the next checklist."""
+    global current_checklist_id
+    log.info("Switching to next checklist")
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('SELECT id FROM checklists ORDER BY id')
+        checklist_ids = [row[0] for row in cur.fetchall()]
+        con.close()
+        
+        if not checklist_ids:
+            emit('error', 'No checklists available')
+            return
+            
+        try:
+            current_index = checklist_ids.index(current_checklist_id)
+            next_index = (current_index + 1) % len(checklist_ids)  # Wrap around
+            current_checklist_id = checklist_ids[next_index]
+        except ValueError:
+            # Current checklist ID not found, use first one
+            current_checklist_id = checklist_ids[0]
+        
+        # Reset all tasks for the new checklist
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('UPDATE actions SET status = 0;')
+        con.commit()
+        con.close()
+        
+        update_all_clients()
+        log.info("Switched to checklist", checklist_id=current_checklist_id)
+    except Exception as e:
+        log.error("Error switching to next checklist", error=str(e))
+        emit('error', 'Internal server error')
+
+@socketio.on('previous_checklist')
+def handle_previous_checklist():
+    """WebSocket handler for switching to the previous checklist."""
+    global current_checklist_id
+    log.info("Switching to previous checklist")
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('SELECT id FROM checklists ORDER BY id')
+        checklist_ids = [row[0] for row in cur.fetchall()]
+        con.close()
+        
+        if not checklist_ids:
+            emit('error', 'No checklists available')
+            return
+            
+        try:
+            current_index = checklist_ids.index(current_checklist_id)
+            prev_index = (current_index - 1) % len(checklist_ids)  # Wrap around
+            current_checklist_id = checklist_ids[prev_index]
+        except ValueError:
+            # Current checklist ID not found, use last one
+            current_checklist_id = checklist_ids[-1]
+        
+        # Reset all tasks for the new checklist
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('UPDATE actions SET status = 0;')
+        con.commit()
+        con.close()
+        
+        update_all_clients()
+        log.info("Switched to checklist", checklist_id=current_checklist_id)
+    except Exception as e:
+        log.error("Error switching to previous checklist", error=str(e))
         emit('error', 'Internal server error')
 
 if __name__ == "__main__":

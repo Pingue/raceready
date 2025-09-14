@@ -57,28 +57,48 @@ socket.on('partial_data', function (data) {
 socket.on('all_data', function (data) {
     $('tbody').empty();
     updateData(data);
+    // Extract current checklist ID from the data and update dropdown
+    if (data.length > 0) {
+        var currentChecklistId = data[0].checklist_id;
+        var select = $('#checklist-select');
+        if (select.find('option').length > 0) {
+            select.val(currentChecklistId);
+            select.find('option').prop('selected', false);
+            select.find('option[value="' + currentChecklistId + '"]').prop('selected', true);
+        }
+    }
+});
+socket.on('error', function (message) {
+    console.error('Socket error:', message);
 });
 $().ready(function() {
     $('#reset-all').click(function() {
         socket.emit('reset_all');
     });
-    $.get('/checklists', function(data) {
-        var select = $('#checklist-select');
-        data.forEach(function(cl) {
-            select.append($('<option>', { value: cl.id, text: cl.name }));
+    
+    // Load checklists and set the current one as selected using WebSocket
+    socket.once('checklists', function(checklists) {
+        socket.once('current_checklist', function(currentData) {
+            console.log('Checklists loaded:', checklists);
+            console.log('Current checklist:', currentData);
+            var select = $('#checklist-select');
+            select.empty(); // Clear any existing options
+            checklists.forEach(function(cl) {
+                var option = $('<option>', { value: cl.id, text: cl.name });
+                if (cl.id == currentData.current_checklist_id) {
+                    option.attr('selected', 'selected');
+                }
+                select.append(option);
+            });
         });
+        socket.emit('get_current_checklist');
     });
+    
+    // Request the data
+    socket.emit('get_checklists');
 
     $('#checklist-select').on('change', function() {
         var checklist_id = $(this).val();
-        $.ajax({
-            url: '/set_checklist',
-            type: 'POST',
-            data: JSON.stringify({ checklist_id }),
-            contentType: 'application/json',
-            success: function() {
-                socket.emit('request_all_data');
-            }
-        });
+        socket.emit('set_checklist', { checklist_id: checklist_id });
     });
 });
