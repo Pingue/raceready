@@ -124,11 +124,12 @@ def generate_companion_export():
     con = get_db_connection()
     cur = con.cursor()
     cur.execute("SELECT id, text FROM actions WHERE checklist_id = ? ORDER BY `order`", (current_checklist_id,))
-    actions = cur.fetchall()
+    actions = cursortodict(cur)
     con.close()
 
-    if not actions:
-        return jsonify({"error": "No actions found"}), 404
+    # Add normalised_index
+    for idx, action in enumerate(actions, start=1):
+        action['normalised_index'] = idx
 
     # Prepare controls grid
     controls = {
@@ -157,12 +158,8 @@ def generate_companion_export():
                 "feedbacks": [
                     {
                         "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                        # definitionId is required in future
-                        # "definitionId": "RaceReadyState",
-                        # instance_id=connectionId in future
                         "instance_id": "LKMfUhdXb1f2QGkvRrC5w",
                         "options": {},
-                        # type will be "feedback" in future
                         "type": "RaceReadyOverallState",
                         "style": {"bgcolor": 65280, "color": 0},
                         "isInverted": False,
@@ -172,17 +169,13 @@ def generate_companion_export():
                     "0": {
                         "action_sets": {
                             "down": [
-                            {
-                                "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                                # action=definitionId in future
-                                "action": "reset_all",
-                                # instance=connectionId in future
-                                "instance": "LKMfUhdXb1f2QGkvRrC5w",
-                                "options": {},
-                                # type is required in future
-                                # "type": "action",
-                            },
-                        ],
+                                {
+                                    "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
+                                    "action": "reset_all",
+                                    "instance": "LKMfUhdXb1f2QGkvRrC5w",
+                                    "options": {},
+                                },
+                            ],
                             "up": [],
                         },
                         "options": {"runWhileHeld": []},
@@ -192,11 +185,10 @@ def generate_companion_export():
         },
     }
 
-    # Fill rows and columns with actions
+    # Fill rows and columns with actions, using normalised_index for order
     row = 0
     col = 1
-    count = 1
-    for idx, action in enumerate(actions):
+    for action in actions:
         button = {
             "type": "button",
             "style": {
@@ -218,12 +210,8 @@ def generate_companion_export():
             "feedbacks": [
                 {
                     "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                    # definitionId is required in future
-                    # "definitionId": "RaceReadyState",
-                    # instance_id=connectionId in future
                     "instance_id": "LKMfUhdXb1f2QGkvRrC5w",
-                    "options": {"id": str(action["id"])},
-                    # type will be "feedback" in future
+                    "options": {"normalised_index": str(action["normalised_index"])},
                     "type": "RaceReadyState",
                     "style": {"bgcolor": 65280, "color": 0},
                     "isInverted": False,
@@ -235,13 +223,9 @@ def generate_companion_export():
                         "down": [
                             {
                                 "id": base64.urlsafe_b64encode(uuid.uuid4().bytes).rstrip(b'=').decode('utf-8'),
-                                # action=definitionId in future
-                                "action": "toggle",
-                                # instance=connectionId in future
+                                "action": "toggle_by_normalised_id",
                                 "instance": "LKMfUhdXb1f2QGkvRrC5w",
-                                "options": {"id": str(action["id"])},
-                                # type is required in future
-                                # "type": "action",
+                                "options": {"normalised_index": str(action["normalised_index"])},
                             },
                         ],
                         "up": [],
@@ -261,7 +245,6 @@ def generate_companion_export():
         if col > 7:  # Max 8 columns (0-7)
             col = 1
             row += 1
-        count += 1
 
     # Prepare the export JSON
     export_json = {
@@ -342,6 +325,34 @@ def toggle_state_http():
     except Exception as e:
         log.error("Error toggling state", error=str(e))
         return jsonify({'error': 'Internal server error'}), 500
+
+@app.route('/toggle_by_normalised_id', methods=['POST'])
+def toggle_by_normalised_id():
+    data = request.get_json()
+    normalised_index = data.get('normalised_index')
+    if not normalised_index:
+        return jsonify({'error': 'Missing normalised_index'}), 400
+
+    con = get_db_connection()
+    cur = con.cursor()
+    cur.execute(
+        'SELECT id, status FROM actions WHERE checklist_id = ? ORDER BY "order" LIMIT 1 OFFSET ?',
+        (current_checklist_id, int(normalised_index) - 1)
+    )
+    result = cur.fetchone()
+    if result is None:
+        con.close()
+        return jsonify({'error': 'Action not found'}), 404
+
+    action_id, current_status = result
+    new_status = 1 - current_status
+    cur.execute('UPDATE actions SET status = ? WHERE id = ?', (new_status, action_id))
+    con.commit()
+    cur.execute('SELECT * FROM actions WHERE id = ?', (action_id,))
+    updated_action = cursortodict(cur)[0]
+    con.close()
+    update_all_clients(data=updated_action)
+    return jsonify({'success': True, 'data': updated_action}), 200
 
 @socketio.on('delete')
 def handle_delete(data):
@@ -438,19 +449,36 @@ def update_all_clients(data=None):
     log.info("Updating all clients", data=data)
     if data is None:
         cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
-        data = cursortodict(cur)
-        socketio.emit('all_data', data)
+        actions = cursortodict(cur)
+        # Add normalised_index
+        log.info("----")
+        for idx, action in enumerate(actions, start=1):
+            action['normalised_index'] = idx
+            log.info(action)
+        log.info(actions)
+        socketio.emit('all_data', actions)
     else:
-        data = [data]
-        socketio.emit('partial_data', data)
+        # If partial, you may want to recalculate normalised_index for the current checklist
+        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
+        actions = cursortodict(cur)
+        id_to_index = {a['id']: i+1 for i, a in enumerate(actions)}
+        if isinstance(data, list):
+            for d in data:
+                d['normalised_index'] = id_to_index.get(d['id'])
+        else:
+            data['normalised_index'] = id_to_index.get(data['id'])
+        socketio.emit('partial_data', data if isinstance(data, list) else [data])
 
 @socketio.on('request_all_data')
 def handle_message():
     con = get_db_connection()
     cur = con.cursor()
     cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY `order`', (current_checklist_id,))
-    data = cursortodict(cur)
-    emit('all_data', data)
+    actions = cursortodict(cur)
+    # Add normalised_index to each action
+    for idx, action in enumerate(actions, start=1):
+        action['normalised_index'] = idx
+    emit('all_data', actions)
 
 @socketio.on('delete')
 def handle_delete(data):
@@ -541,6 +569,33 @@ def delete_checklist():
     con.commit()
     con.close()
     return jsonify({'success': True})
+
+@socketio.on('toggle_state_by_normalised')
+def handle_toggle_state_by_normalised(data):
+    """WebSocket handler for toggling state by normalised_index in the current checklist."""
+    log.info("Toggling state by normalised_index", data=data)
+    normalised_index = data.get('normalised_index')
+    if not normalised_index:
+        emit('error', 'Missing normalised_index')
+        return
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute(
+            'SELECT id FROM actions WHERE checklist_id = ? ORDER BY "order" LIMIT 1 OFFSET ?',
+            (current_checklist_id, int(normalised_index) - 1)
+        )
+        result = cur.fetchone()
+        if result is None:
+            con.close()
+            emit('error', 'Action not found')
+            return
+        action_id = result[0]
+        action = toggle_state_logic(action_id)
+        emit('success', action)
+    except Exception as e:
+        log.error("Error toggling state by normalised_index", error=str(e))
+        emit('error', 'Internal server error')
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))

@@ -166,6 +166,5 @@ function updateChecklistDropdown() {
 
 
 // Remaining to do:
-// - Add functionality to the checklist dropdown to load the selected checklist
 // - Button for next checklist
-// - Actually limit actions to current checklist
+// - Test companion export with normalised stuff. It probably needs an update to emit the new event
