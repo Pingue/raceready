@@ -11,7 +11,28 @@ app = Flask(__name__)
 db_path = os.environ.get('DB_PATH', '/data/db.sqlite3')
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 log = structlog.get_logger()
-current_checklist_id = 1  # Default checklist
+current_checklist_id = None  # Will be set on first access
+
+def get_current_checklist_id():
+    """Get the current checklist ID, ensuring it exists in the database."""
+    global current_checklist_id
+    
+    if current_checklist_id is None:
+        con = get_db_connection()
+        cur = con.cursor()
+        # Get the first available checklist
+        cur.execute('SELECT id FROM checklists ORDER BY id LIMIT 1')
+        result = cur.fetchone()
+        if result:
+            current_checklist_id = result[0]
+        else:
+            # No checklists exist, create a default one
+            cur.execute('INSERT INTO checklists (name) VALUES (?)', ('Default',))
+            con.commit()
+            current_checklist_id = cur.lastrowid
+        con.close()
+    
+    return current_checklist_id
 
 def cursortodict(cursor):
     desc = cursor.description
@@ -25,11 +46,24 @@ def get_db_connection():
     con.row_factory = sqlite3.Row
     # Create checklists table if it doesn't exist
     con.execute('CREATE TABLE IF NOT EXISTS checklists (id INTEGER PRIMARY KEY, name TEXT)')
-    # Check if checklists table is empty, and add a default entry if so
+    
+    # Add order column if it doesn't exist
     cur = con.cursor()
+    cur.execute("PRAGMA table_info(checklists)")
+    columns = [column[1] for column in cur.fetchall()]
+    if 'order_pos' not in columns:
+        cur.execute('ALTER TABLE checklists ADD COLUMN order_pos INTEGER DEFAULT 0')
+        # Set initial order values
+        cur.execute('SELECT id FROM checklists ORDER BY id')
+        checklists = cur.fetchall()
+        for idx, checklist in enumerate(checklists):
+            cur.execute('UPDATE checklists SET order_pos = ? WHERE id = ?', (idx + 1, checklist[0]))
+        con.commit()
+    
+    # Check if checklists table is empty, and add a default entry if so
     cur.execute('SELECT COUNT(*) FROM checklists')
     if cur.fetchone()[0] == 0:
-        cur.execute('INSERT INTO checklists (name) VALUES (?)', ('Default',))
+        cur.execute('INSERT INTO checklists (name, order_pos) VALUES (?, ?)', ('Default', 1))
         con.commit()
     # Create actions table if it doesn't exist
     con.execute('''
@@ -70,7 +104,7 @@ def toggle_by_title():
 
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT id, status FROM actions WHERE text = ? AND checklist_id = ?', (title, current_checklist_id))
+    cur.execute('SELECT id, status FROM actions WHERE text = ? AND checklist_id = ?', (title, get_current_checklist_id()))
     result = cur.fetchone()
 
     if result is None:
@@ -106,7 +140,7 @@ def get_action_title():
 
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT text FROM actions WHERE id = ? AND checklist_id = ?', (action_id, current_checklist_id))
+    cur.execute('SELECT text FROM actions WHERE id = ? AND checklist_id = ?', (action_id, get_current_checklist_id()))
     result = cur.fetchone()
     con.close()
 
@@ -183,7 +217,7 @@ def toggle_by_normalised_id():
     cur = con.cursor()
     cur.execute(
         'SELECT id, status FROM actions WHERE checklist_id = ? ORDER BY "order" LIMIT 1 OFFSET ?',
-        (current_checklist_id, int(normalised_index) - 1)
+        (get_current_checklist_id(), int(normalised_index) - 1)
     )
     result = cur.fetchone()
     if result is None:
@@ -283,7 +317,7 @@ def handle_add(data):
     max_order = cur.execute('SELECT MAX(`order`) FROM actions').fetchone()[0]
     if max_order is None:
         max_order = 0
-    cur.execute('INSERT INTO actions VALUES (?, ?, ?, 0, ?)', (max_id + 1, data['text'], max_order + 1, current_checklist_id))
+    cur.execute('INSERT INTO actions VALUES (?, ?, ?, 0, ?)', (max_id + 1, data['text'], max_order + 1, get_current_checklist_id()))
     con.commit()
     cur.execute('SELECT * FROM actions WHERE `order` = ?', (max_order + 1,))
     data = cursortodict(cur)[0]
@@ -293,8 +327,14 @@ def update_all_clients(data=None):
     con = get_db_connection()
     cur = con.cursor()
     log.info("Updating all clients", data=data)
+    
+    # Get current checklist name
+    cur.execute('SELECT name FROM checklists WHERE id = ?', (get_current_checklist_id(),))
+    result = cur.fetchone()
+    current_phase = result[0] if result else "Default"
+    
     if data is None:
-        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
+        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (get_current_checklist_id(),))
         actions = cursortodict(cur)
         # Add normalised_index
         log.info("----")
@@ -302,10 +342,10 @@ def update_all_clients(data=None):
             action['normalised_index'] = idx
             log.info(action)
         log.info(actions)
-        socketio.emit('all_data', actions)
+        socketio.emit('all_data', {'actions': actions, 'current_phase': current_phase})
     else:
         # If partial, you may want to recalculate normalised_index for the current checklist
-        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
+        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (get_current_checklist_id(),))
         actions = cursortodict(cur)
         id_to_index = {a['id']: i+1 for i, a in enumerate(actions)}
         if isinstance(data, list):
@@ -314,17 +354,26 @@ def update_all_clients(data=None):
         else:
             data['normalised_index'] = id_to_index.get(data['id'])
         socketio.emit('partial_data', data if isinstance(data, list) else [data])
+        # Also send current phase for partial updates
+        socketio.emit('current_phase', {'current_phase': current_phase})
 
 @socketio.on('request_all_data')
 def handle_message():
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY `order`', (current_checklist_id,))
+    cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY `order`', (get_current_checklist_id(),))
     actions = cursortodict(cur)
     # Add normalised_index to each action
     for idx, action in enumerate(actions, start=1):
         action['normalised_index'] = idx
-    emit('all_data', actions)
+    
+    # Get current checklist name
+    cur.execute('SELECT name FROM checklists WHERE id = ?', (get_current_checklist_id(),))
+    result = cur.fetchone()
+    current_phase = result[0] if result else "Default"
+    con.close()
+    
+    emit('all_data', {'actions': actions, 'current_phase': current_phase})
 
 @socketio.on('delete')
 def handle_delete(data):
@@ -351,14 +400,14 @@ def handle_reset_all():
 def get_checklists():
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT * FROM checklists')
+    cur.execute('SELECT * FROM checklists ORDER BY order_pos, id')
     checklists = cursortodict(cur)
     con.close()
     return jsonify(checklists)
 
 @app.route('/current_checklist', methods=['GET'])
 def get_current_checklist():
-    return jsonify({'current_checklist_id': current_checklist_id})
+    return jsonify({'current_checklist_id': get_current_checklist_id()})
 
 @app.route('/set_checklist', methods=['POST'])
 def set_checklist():
@@ -385,11 +434,17 @@ def create_checklist():
         return jsonify({'error': 'Missing checklist name'}), 400
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('INSERT INTO checklists (name) VALUES (?)', (name,))
+    
+    # Get the maximum order position and add 1
+    cur.execute('SELECT MAX(order_pos) FROM checklists')
+    max_order = cur.fetchone()[0]
+    new_order = (max_order or 0) + 1
+    
+    cur.execute('INSERT INTO checklists (name, order_pos) VALUES (?, ?)', (name, new_order))
     con.commit()
     checklist_id = cur.lastrowid
     con.close()
-    return jsonify({'success': True, 'id': checklist_id, 'name': name}), 201
+    return jsonify({'success': True, 'id': checklist_id, 'name': name, 'order_pos': new_order}), 201
 
 @app.route('/rename_checklist', methods=['POST'])
 def rename_checklist():
@@ -433,7 +488,7 @@ def handle_toggle_state_by_normalised(data):
         cur = con.cursor()
         cur.execute(
             'SELECT id FROM actions WHERE checklist_id = ? ORDER BY "order" LIMIT 1 OFFSET ?',
-            (current_checklist_id, int(normalised_index) - 1)
+            (get_current_checklist_id(), int(normalised_index) - 1)
         )
         result = cur.fetchone()
         if result is None:
@@ -472,14 +527,14 @@ def handle_set_checklist(data):
 @socketio.on('get_current_checklist')
 def handle_get_current_checklist():
     """WebSocket handler for getting the current checklist."""
-    emit('current_checklist', {'current_checklist_id': current_checklist_id})
+    emit('current_checklist', {'current_checklist_id': get_current_checklist_id()})
 
 @socketio.on('get_checklists')
 def handle_get_checklists():
     """WebSocket handler for getting all checklists."""
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT * FROM checklists')
+    cur.execute('SELECT * FROM checklists ORDER BY order_pos, id')
     checklists = cursortodict(cur)
     con.close()
     emit('checklists', checklists)
@@ -501,7 +556,7 @@ def handle_next_checklist():
             return
             
         try:
-            current_index = checklist_ids.index(current_checklist_id)
+            current_index = checklist_ids.index(get_current_checklist_id())
             next_index = (current_index + 1) % len(checklist_ids)  # Wrap around
             current_checklist_id = checklist_ids[next_index]
         except ValueError:
@@ -538,7 +593,7 @@ def handle_previous_checklist():
             return
             
         try:
-            current_index = checklist_ids.index(current_checklist_id)
+            current_index = checklist_ids.index(get_current_checklist_id())
             prev_index = (current_index - 1) % len(checklist_ids)  # Wrap around
             current_checklist_id = checklist_ids[prev_index]
         except ValueError:
@@ -556,6 +611,90 @@ def handle_previous_checklist():
         log.info("Switched to checklist", checklist_id=current_checklist_id)
     except Exception as e:
         log.error("Error switching to previous checklist", error=str(e))
+        emit('error', 'Internal server error')
+
+@socketio.on('move_checklist_up')
+def handle_move_checklist_up(data):
+    """WebSocket handler for moving a checklist up in order."""
+    log.info("Moving checklist up", data=data)
+    checklist_id = data.get('id')
+    if not checklist_id:
+        emit('error', 'Missing checklist id')
+        return
+    
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        
+        # Get current order position
+        cur.execute('SELECT order_pos FROM checklists WHERE id = ?', (checklist_id,))
+        result = cur.fetchone()
+        if not result:
+            con.close()
+            emit('error', 'Checklist not found')
+            return
+        
+        current_order = result[0]
+        
+        # Find the checklist with the previous order position
+        cur.execute('SELECT id, order_pos FROM checklists WHERE order_pos < ? ORDER BY order_pos DESC LIMIT 1', (current_order,))
+        prev_result = cur.fetchone()
+        
+        if prev_result:
+            prev_id, prev_order = prev_result
+            # Swap the order positions
+            cur.execute('UPDATE checklists SET order_pos = ? WHERE id = ?', (prev_order, checklist_id))
+            cur.execute('UPDATE checklists SET order_pos = ? WHERE id = ?', (current_order, prev_id))
+            con.commit()
+        
+        con.close()
+        emit('checklist_moved', {'success': True})
+        # Refresh checklists for all clients
+        handle_get_checklists()
+    except Exception as e:
+        log.error("Error moving checklist up", error=str(e))
+        emit('error', 'Internal server error')
+
+@socketio.on('move_checklist_down')
+def handle_move_checklist_down(data):
+    """WebSocket handler for moving a checklist down in order."""
+    log.info("Moving checklist down", data=data)
+    checklist_id = data.get('id')
+    if not checklist_id:
+        emit('error', 'Missing checklist id')
+        return
+    
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        
+        # Get current order position
+        cur.execute('SELECT order_pos FROM checklists WHERE id = ?', (checklist_id,))
+        result = cur.fetchone()
+        if not result:
+            con.close()
+            emit('error', 'Checklist not found')
+            return
+        
+        current_order = result[0]
+        
+        # Find the checklist with the next order position
+        cur.execute('SELECT id, order_pos FROM checklists WHERE order_pos > ? ORDER BY order_pos ASC LIMIT 1', (current_order,))
+        next_result = cur.fetchone()
+        
+        if next_result:
+            next_id, next_order = next_result
+            # Swap the order positions
+            cur.execute('UPDATE checklists SET order_pos = ? WHERE id = ?', (next_order, checklist_id))
+            cur.execute('UPDATE checklists SET order_pos = ? WHERE id = ?', (current_order, next_id))
+            con.commit()
+        
+        con.close()
+        emit('checklist_moved', {'success': True})
+        # Refresh checklists for all clients
+        handle_get_checklists()
+    except Exception as e:
+        log.error("Error moving checklist down", error=str(e))
         emit('error', 'Internal server error')
 
 if __name__ == "__main__":

@@ -29,9 +29,12 @@ function loadChecklistsTable() {
         data.forEach(function(cl) {
             var row = $('<tr>');
             row.append('<td>' + cl.id + '</td>');
+            row.append('<td>' + (cl.order_pos || 0) + '</td>');
             row.append('<td><input type="text" class="form-control checklist-name" value="' + cl.name + '" data-id="' + cl.id + '"/></td>');
             row.append(
                 '<td>' +
+                '<button class="btn btn-info btn-sm move-checklist-up" data-id="' + cl.id + '">Up</button> ' +
+                '<button class="btn btn-info btn-sm move-checklist-down" data-id="' + cl.id + '">Down</button> ' +
                 '<button class="btn btn-warning btn-sm rename-checklist" data-id="' + cl.id + '">Rename</button> ' +
                 '<button class="btn btn-danger btn-sm delete-checklist" data-id="' + cl.id + '">Delete</button>' +
                 '</td>'
@@ -61,12 +64,30 @@ $(document).ready(function() {
     socket.on('partial_data', function (data) {
         updateData(data);
     });
+    socket.on('current_phase', function (data) {
+        if (data.current_phase) {
+            $('h1').text('Race Ready Admin - ' + data.current_phase);
+        }
+    });
+    socket.on('checklist_moved', function (data) {
+        if (data.success) {
+            loadChecklistsTable();
+            updateChecklistDropdown();
+        }
+    });
     socket.on('all_data', function (data) {
         $('tbody#actions').empty();
-        updateData(data);
+        var actions = data.actions || data; // Handle both new format and legacy format
+        updateData(actions);
+        
+        // Update title with current phase if provided
+        if (data.current_phase) {
+            $('h1').text('Race Ready Admin - ' + data.current_phase);
+        }
+        
         // Extract current checklist ID from the data and update dropdown
-        if (data.length > 0) {
-            var currentChecklistId = data[0].checklist_id;
+        if (actions.length > 0) {
+            var currentChecklistId = actions[0].checklist_id;
             var select = $('#checklist-select');
             if (select.find('option').length > 0) {
                 select.val(currentChecklistId);
@@ -155,6 +176,18 @@ $(document).ready(function() {
                 }
             });
         }
+    });
+
+    // Move checklist up
+    $('#checklists-table').on('click', '.move-checklist-up', function() {
+        var id = $(this).data('id');
+        socket.emit('move_checklist_up', { id: id });
+    });
+
+    // Move checklist down
+    $('#checklists-table').on('click', '.move-checklist-down', function() {
+        var id = $(this).data('id');
+        socket.emit('move_checklist_down', { id: id });
     });
 });
 function updateChecklistDropdown() {

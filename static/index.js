@@ -7,7 +7,7 @@ socket.on('connect', function() {
     socket.emit('connecting', {data: 'Client Connecting'});
     socket.emit('request_all_data');
     $('nav').removeClass('bg-danger');
-    $('h1').text('Race Ready');
+    $('h1').text('Race Ready'); // This will be updated when data loads
 });
 socket.on('deleted', function (data) {
     $('#'+data.id).remove();
@@ -54,12 +54,24 @@ function checkAllGreen() {
 socket.on('partial_data', function (data) {
     updateData(data);
 });
+socket.on('current_phase', function (data) {
+    if (data.current_phase) {
+        $('h1').text('Race Ready - ' + data.current_phase);
+    }
+});
 socket.on('all_data', function (data) {
     $('tbody').empty();
-    updateData(data);
+    var actions = data.actions || data; // Handle both new format and legacy format
+    updateData(actions);
+    
+    // Update title with current phase if provided
+    if (data.current_phase) {
+        $('h1').text('Race Ready - ' + data.current_phase);
+    }
+    
     // Extract current checklist ID from the data and update dropdown
-    if (data.length > 0) {
-        var currentChecklistId = data[0].checklist_id;
+    if (actions.length > 0) {
+        var currentChecklistId = actions[0].checklist_id;
         var select = $('#checklist-select');
         if (select.find('option').length > 0) {
             select.val(currentChecklistId);
