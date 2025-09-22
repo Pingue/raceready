@@ -32,11 +32,59 @@ function updateData(data) {
             $('#'+element.id).html(tds);
         }
     });
+    adjustTableCompactness();
     checkAllGreen();
     function rowclick () {
         socket.emit('toggle_state', {id: $(this).attr('id')});
     };
     $('table tr').off('click').on('click', rowclick);
+}
+
+function adjustTableCompactness() {
+    var $table = $('.table');
+    var $container = $('.table-container');
+    var $tbody = $('tbody');
+    var rowCount = $tbody.find('tr').length;
+    
+    if (rowCount === 0) return;
+    
+    // Get available height (minus padding and header)
+    var containerHeight = $container.height();
+    var headerHeight = $('thead').outerHeight() || 50; // fallback if header not rendered yet
+    var availableHeight = containerHeight - headerHeight - 40; // 40px for padding/margins
+    
+    // Calculate optimal height per row
+    var optimalRowHeight = availableHeight / rowCount;
+    
+    console.log('Container height:', containerHeight);
+    console.log('Header height:', headerHeight);
+    console.log('Available height for rows:', availableHeight);
+    console.log('Row count:', rowCount);
+    console.log('Optimal row height:', optimalRowHeight);
+    
+    // Remove existing compactness classes
+    $table.removeClass('compact very-compact ultra-compact');
+    
+    // Determine appropriate font size based on available row height
+    // Font size should be roughly 60-70% of row height for good readability
+    var targetFontSize = optimalRowHeight * 0.6;
+    
+    console.log('Target font size:', targetFontSize + 'px');
+    
+    // Apply appropriate class based on calculated font size
+    if (targetFontSize >= 64) { // 4rem at 16px base
+        // Use default (4rem)
+        console.log('Using default size');
+    } else if (targetFontSize >= 35) { // ~2.2rem
+        $table.addClass('compact');
+        console.log('Using compact');
+    } else if (targetFontSize >= 27) { // ~1.7rem
+        $table.addClass('very-compact');
+        console.log('Using very-compact');
+    } else {
+        $table.addClass('ultra-compact');
+        console.log('Using ultra-compact');
+    }
 }
 function checkAllGreen() {
     var allgreen = true;
@@ -86,6 +134,11 @@ socket.on('error', function (message) {
 $().ready(function() {
     $('#reset-all').click(function() {
         socket.emit('reset_all');
+    });
+    
+    // Adjust table compactness on window resize
+    $(window).on('resize', function() {
+        adjustTableCompactness();
     });
     
     // Load checklists and set the current one as selected using WebSocket

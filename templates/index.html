@@ -5,6 +5,78 @@
         <script src="/static/index.js" type="text/javascript" charset="utf-8"></script>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+        <style>
+            /* Responsive table styling */
+            .table tbody tr.h1 {
+                font-size: 4rem; /* Reasonable large default size */
+                height: auto;
+                line-height: 1.2;
+            }
+            
+            .table tbody tr.h1 td {
+                padding: 0.75rem; /* Default Bootstrap padding */
+                vertical-align: middle;
+            }
+            
+            /* Scale down when many rows */
+            .table.compact tbody tr.h1 {
+                font-size: 2.2rem;
+                line-height: 1.1;
+            }
+            
+            .table.compact tbody tr.h1 td {
+                padding: 0.5rem;
+            }
+            
+            .table.very-compact tbody tr.h1 {
+                font-size: 1.7rem;
+                line-height: 1.0;
+            }
+            
+            .table.very-compact tbody tr.h1 td {
+                padding: 0.3rem;
+            }
+            
+            .table.ultra-compact tbody tr.h1 {
+                font-size: 1.3rem;
+                line-height: 0.9;
+            }
+            
+            .table.ultra-compact tbody tr.h1 td {
+                padding: 0.2rem;
+            }
+            
+            /* Ensure table takes up available space */
+            .table-container {
+                flex: 1;
+                overflow-y: auto;
+                padding: 1rem;
+            }
+            
+            .table {
+                margin-bottom: 0;
+            }
+            
+            body {
+                margin: 0;
+                padding: 0;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+            }
+            
+            .navbar {
+                flex-shrink: 0;
+            }
+            
+            .footer {
+                flex-shrink: 0;
+                margin-top: auto;
+                padding: 1rem 0;
+                background-color: #f8f9fa;
+                border-top: 1px solid #dee2e6;
+            }
+        </style>
     </head>
     <body>
         <nav class="navbar navbar-expand-lg navbar-light">
@@ -19,11 +91,13 @@
             <select id="checklist-select" class="form-select" style="width:auto;display:inline-block"></select>
         </nav>
         
-        <table class="table table-hover table-striped table">
-            <thead><th>Action</th><th>Status</th></thead>
-            <tbody>
-            </tbody>
-        </table>
+        <div class="table-container">
+            <table class="table table-hover table-striped table">
+                <thead><th>Action</th><th>Status</th></thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
 
         <footer class="footer">
             <div class="container">
