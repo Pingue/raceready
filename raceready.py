@@ -345,7 +345,8 @@ def handle_add(data):
     max_order = cur.execute('SELECT MAX(`order`) FROM actions').fetchone()[0]
     if max_order is None:
         max_order = 0
-    cur.execute('INSERT INTO actions VALUES (?, ?, ?, 0, ?)', (max_id + 1, data['text'], max_order + 1, get_current_checklist_id()))
+    cur.execute('INSERT INTO actions (id, text, `order`, status, checklist_id, notes) VALUES (?, ?, ?, 0, ?, ?)', 
+                (max_id + 1, data['text'], max_order + 1, get_current_checklist_id(), ''))
     con.commit()
     cur.execute('SELECT * FROM actions WHERE `order` = ?', (max_order + 1,))
     data = cursortodict(cur)[0]

@@ -27,13 +27,13 @@ function updateData(data) {
         }
         
         // Create edit button
-        var editBtn = '<button class="btn btn-primary btn-sm edit-btn" data-id="' + element.id + '">Edit</button>';
-        var saveBtn = '<button class="btn btn-success btn-sm save-btn" data-id="' + element.id + '" style="display:none;">Save</button>';
-        var cancelBtn = '<button class="btn btn-secondary btn-sm cancel-btn" data-id="' + element.id + '" style="display:none;">Cancel</button>';
+        // var editBtn = '<button class="btn btn-primary btn-sm edit-btn" data-id="' + element.id + '">Edit</button>';
+        // var saveBtn = '<button class="btn btn-success btn-sm save-btn" data-id="' + element.id + '" style="display:none;">Save</button>';
+        // var cancelBtn = '<button class="btn btn-secondary btn-sm cancel-btn" data-id="' + element.id + '" style="display:none;">Cancel</button>';
         
         var notes = element.notes || '';
         
-        tds = "<td class='action-text'>" + element.text + "</td><td class='notes-text'>" + notes + "</td><td class='status bg-" + colour + "'>" + element.status + "</td><td class='edit-cell'>" + editBtn + saveBtn + cancelBtn + "</td>";
+        tds = "<td class='action-text'>" + element.text + "</td><td class='notes-text'>" + notes + "</td><td class='status bg-" + colour + "'>" + element.status + "</td>";// <td class='edit-cell'>" + editBtn + saveBtn + cancelBtn + "</td>";
         
         if ($('#'+element.id).length == 0) {
             $('tbody').append('<tr class="h1" id="'+element.id+'">'+tds+'</tr>');
@@ -52,6 +52,7 @@ function updateData(data) {
     }
     $('table tr').off('click').on('click', rowclick);
     
+    /*
     // Edit button functionality
     $('.edit-btn').off('click').on('click', function(e) {
         e.stopPropagation();
@@ -101,6 +102,7 @@ function updateData(data) {
         // Reset UI without saving
         resetEditUI(row, originalText, originalNotes);
     });
+    */
 }
 
 function resetEditUI(row, text, notes) {
