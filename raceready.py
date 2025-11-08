@@ -357,13 +357,14 @@ def update_all_clients(data=None):
     cur = con.cursor()
     log.info("Updating all clients", data=data)
     
-    # Get current checklist name
-    cur.execute('SELECT name FROM checklists WHERE id = ?', (get_current_checklist_id(),))
+    # Get current checklist name and ID
+    current_checklist_id = get_current_checklist_id()
+    cur.execute('SELECT name FROM checklists WHERE id = ?', (current_checklist_id,))
     result = cur.fetchone()
     current_phase = result[0] if result else "Default"
     
     if data is None:
-        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (get_current_checklist_id(),))
+        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
         actions = cursortodict(cur)
         # Add normalised_index
         log.info("----")
@@ -371,10 +372,10 @@ def update_all_clients(data=None):
             action['normalised_index'] = idx
             log.info(action)
         log.info(actions)
-        socketio.emit('all_data', {'actions': actions, 'current_phase': current_phase})
+        socketio.emit('all_data', {'actions': actions, 'current_phase': current_phase, 'current_checklist_id': current_checklist_id})
     else:
         # If partial, you may want to recalculate normalised_index for the current checklist
-        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (get_current_checklist_id(),))
+        cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY "order"', (current_checklist_id,))
         actions = cursortodict(cur)
         id_to_index = {a['id']: i+1 for i, a in enumerate(actions)}
         if isinstance(data, list):
@@ -384,25 +385,26 @@ def update_all_clients(data=None):
             data['normalised_index'] = id_to_index.get(data['id'])
         socketio.emit('partial_data', data if isinstance(data, list) else [data])
         # Also send current phase for partial updates
-        socketio.emit('current_phase', {'current_phase': current_phase})
+        socketio.emit('current_phase', {'current_phase': current_phase, 'current_checklist_id': current_checklist_id})
 
 @socketio.on('request_all_data')
 def handle_message():
     con = get_db_connection()
     cur = con.cursor()
-    cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY `order`', (get_current_checklist_id(),))
+    current_checklist_id = get_current_checklist_id()
+    cur.execute('SELECT * FROM actions WHERE checklist_id = ? ORDER BY `order`', (current_checklist_id,))
     actions = cursortodict(cur)
     # Add normalised_index to each action
     for idx, action in enumerate(actions, start=1):
         action['normalised_index'] = idx
     
     # Get current checklist name
-    cur.execute('SELECT name FROM checklists WHERE id = ?', (get_current_checklist_id(),))
+    cur.execute('SELECT name FROM checklists WHERE id = ?', (current_checklist_id,))
     result = cur.fetchone()
     current_phase = result[0] if result else "Default"
     con.close()
     
-    emit('all_data', {'actions': actions, 'current_phase': current_phase})
+    emit('all_data', {'actions': actions, 'current_phase': current_phase, 'current_checklist_id': current_checklist_id})
 
 @socketio.on('delete')
 def handle_delete(data):
