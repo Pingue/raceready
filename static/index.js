@@ -25,7 +25,16 @@ function updateData(data) {
         } else {
             element.status = 'Not Ready';
         }
-        tds = "<td>"+element.text+"</td><td class='status bg-"+colour+"'>"+element.status+"</td>";
+        
+        // Create edit button
+        var editBtn = '<button class="btn btn-primary btn-sm edit-btn" data-id="' + element.id + '">Edit</button>';
+        var saveBtn = '<button class="btn btn-success btn-sm save-btn" data-id="' + element.id + '" style="display:none;">Save</button>';
+        var cancelBtn = '<button class="btn btn-secondary btn-sm cancel-btn" data-id="' + element.id + '" style="display:none;">Cancel</button>';
+        
+        var notes = element.notes || '';
+        
+        tds = "<td class='action-text'>" + element.text + "</td><td class='notes-text'>" + notes + "</td><td class='status bg-" + colour + "'>" + element.status + "</td><td class='edit-cell'>" + editBtn + saveBtn + cancelBtn + "</td>";
+        
         if ($('#'+element.id).length == 0) {
             $('tbody').append('<tr class="h1" id="'+element.id+'">'+tds+'</tr>');
         } else {
@@ -34,10 +43,73 @@ function updateData(data) {
     });
     adjustTableCompactness();
     checkAllGreen();
-    function rowclick () {
-        socket.emit('toggle_state', {id: $(this).attr('id')});
-    };
+    
+    // Row click for toggle (but not on edit buttons)
+    function rowclick(e) {
+        if (!$(e.target).hasClass('btn') && !$(e.target).hasClass('form-control')) {
+            socket.emit('toggle_state', {id: $(this).attr('id')});
+        }
+    }
     $('table tr').off('click').on('click', rowclick);
+    
+    // Edit button functionality
+    $('.edit-btn').off('click').on('click', function(e) {
+        e.stopPropagation();
+        var rowId = $(this).data('id');
+        var row = $('#' + rowId);
+        var actionCell = row.find('.action-text');
+        var notesCell = row.find('.notes-text');
+        var currentText = actionCell.text();
+        var currentNotes = notesCell.text();
+        
+        // Replace text with input fields
+        actionCell.html('<input type="text" class="form-control action-input" value="' + currentText + '" data-original="' + currentText + '">');
+        notesCell.html('<input type="text" class="form-control notes-input" value="' + currentNotes + '" data-original="' + currentNotes + '">');
+        
+        // Show save/cancel, hide edit
+        $(this).hide();
+        row.find('.save-btn, .cancel-btn').show();
+    });
+    
+    // Save button functionality
+    $('.save-btn').off('click').on('click', function(e) {
+        e.stopPropagation();
+        var rowId = $(this).data('id');
+        var row = $('#' + rowId);
+        var actionInput = row.find('.action-input');
+        var notesInput = row.find('.notes-input');
+        var newText = actionInput.val();
+        var newNotes = notesInput.val();
+        
+        // Send update to server using existing 'save' event
+        socket.emit('save', {id: rowId, text: newText, notes: newNotes});
+        
+        // Reset UI
+        resetEditUI(row, newText, newNotes);
+    });
+    
+    // Cancel button functionality
+    $('.cancel-btn').off('click').on('click', function(e) {
+        e.stopPropagation();
+        var rowId = $(this).data('id');
+        var row = $('#' + rowId);
+        var actionInput = row.find('.action-input');
+        var notesInput = row.find('.notes-input');
+        var originalText = actionInput.data('original');
+        var originalNotes = notesInput.data('original');
+        
+        // Reset UI without saving
+        resetEditUI(row, originalText, originalNotes);
+    });
+}
+
+function resetEditUI(row, text, notes) {
+    var actionCell = row.find('.action-text');
+    var notesCell = row.find('.notes-text');
+    actionCell.html(text);
+    notesCell.html(notes);
+    row.find('.edit-btn').show();
+    row.find('.save-btn, .cancel-btn').hide();
 }
 
 function adjustTableCompactness() {

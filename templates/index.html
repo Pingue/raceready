@@ -76,6 +76,39 @@
                 background-color: #f8f9fa;
                 border-top: 1px solid #dee2e6;
             }
+            
+            /* Edit button styling */
+            .edit-cell {
+                white-space: nowrap;
+                width: 1%;
+            }
+            
+            .edit-cell .btn {
+                margin: 2px;
+                padding: 4px 8px;
+                font-size: 0.8rem;
+            }
+            
+            .action-input, .notes-input {
+                width: 100%;
+                font-size: inherit;
+            }
+            
+            /* Make buttons smaller in compact modes */
+            .table.compact .edit-cell .btn {
+                padding: 2px 6px;
+                font-size: 0.7rem;
+            }
+            
+            .table.very-compact .edit-cell .btn {
+                padding: 1px 4px;
+                font-size: 0.6rem;
+            }
+            
+            .table.ultra-compact .edit-cell .btn {
+                padding: 1px 3px;
+                font-size: 0.55rem;
+            }
         </style>
     </head>
     <body>
@@ -93,7 +126,7 @@
         
         <div class="table-container">
             <table class="table table-hover table-striped table">
-                <thead><th>Action</th><th>Status</th></thead>
+                <thead><th>Action</th><th>Notes</th><th>Status</th><th style="width: 100px;">Edit</th></thead>
                 <tbody>
                 </tbody>
             </table>

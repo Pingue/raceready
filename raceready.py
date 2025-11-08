@@ -76,6 +76,14 @@ def get_db_connection():
             FOREIGN KEY(checklist_id) REFERENCES checklists(id)
         )
     ''')
+    
+    # Add notes column to actions table if it doesn't exist
+    cur.execute("PRAGMA table_info(actions)")
+    action_columns = [column[1] for column in cur.fetchall()]
+    if 'notes' not in action_columns:
+        cur.execute('ALTER TABLE actions ADD COLUMN notes TEXT DEFAULT ""')
+        con.commit()
+    
     con.commit()
     return con
 
@@ -252,10 +260,30 @@ def handle_save(data):
     log.info("Saving", data=data)
     con = get_db_connection()
     cur = con.cursor()
-    if 'id' not in data or 'text' not in data:
-        emit('error', 'Missing id or text')
+    if 'id' not in data:
+        emit('error', 'Missing id')
         return
-    cur.execute('UPDATE actions SET text = ? WHERE id = ?', (data['text'], data['id']))
+    
+    # Build update query based on what fields are provided
+    updates = []
+    params = []
+    
+    if 'text' in data:
+        updates.append('text = ?')
+        params.append(data['text'])
+    
+    if 'notes' in data:
+        updates.append('notes = ?')
+        params.append(data['notes'])
+    
+    if not updates:
+        emit('error', 'No fields to update')
+        return
+    
+    params.append(data['id'])
+    query = f"UPDATE actions SET {', '.join(updates)} WHERE id = ?"
+    
+    cur.execute(query, params)
     con.commit()
     cur.execute('SELECT * FROM actions WHERE id = ?', (data['id'],))
     data = cursortodict(cur)[0]

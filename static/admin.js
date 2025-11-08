@@ -5,7 +5,8 @@ function updateData(data) {
     console.log(tbody.length);
 
     data.forEach(element => {
-        tds = '<td id="'+element.id+'">'+element.id+'</td><td><input class="form-control" value="'+element.text+'"/></td><td>'+element.status+'</td><td>'+element.order+'</td><td class="fit"><button id="up" class="btn btn-info btn-sm">Up</button>  <button id="down" class="btn btn-info btn-sm">Down</button>  <button id="save" class="btn btn-success btn-sm">Save</button> <button id="delete" class="btn btn-danger btn-sm">Delete</button></td>';
+        var notes = element.notes || '';
+        tds = '<td id="'+element.id+'">'+element.id+'</td><td><input class="form-control action-input" value="'+element.text+'"/></td><td><input class="form-control notes-input" value="'+notes+'"/></td><td>'+element.status+'</td><td>'+element.order+'</td><td class="fit"><button id="up" class="btn btn-info btn-sm">Up</button>  <button id="down" class="btn btn-info btn-sm">Down</button>  <button id="save" class="btn btn-success btn-sm">Save</button> <button id="delete" class="btn btn-danger btn-sm">Delete</button></td>';
         if ($('#'+element.id).length == 0) {
             $('tbody#actions').append('<tr id="'+element.id+'">'+tds+'</tr>');
         } else {
@@ -109,8 +110,9 @@ $(document).ready(function() {
     });
     $(document).on('click', '#save', function() {
         var id = $(this).closest('tr').attr('id');
-        var text = $(this).closest('tr').find('input').val();
-        socket.emit('save', {id: id, text: text});
+        var text = $(this).closest('tr').find('.action-input').val();
+        var notes = $(this).closest('tr').find('.notes-input').val();
+        socket.emit('save', {id: id, text: text, notes: notes});
     });
     $(document).on('click', '#delete', function() {
         var id = $(this).closest('tr').attr('id');
