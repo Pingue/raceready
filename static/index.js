@@ -118,46 +118,64 @@ function adjustTableCompactness() {
     var $table = $('.table');
     var $container = $('.table-container');
     var $tbody = $('tbody');
-    var rowCount = $tbody.find('tr').length;
+    var $rows = $tbody.find('tr');
+    var rowCount = $rows.length;
     
     if (rowCount === 0) return;
     
     // Get available height (minus padding and header)
     var containerHeight = $container.height();
-    var headerHeight = $('thead').outerHeight() || 50; // fallback if header not rendered yet
+    var headerHeight = $('thead').outerHeight() || 50;
     var availableHeight = containerHeight - headerHeight - 40; // 40px for padding/margins
-    
-    // Calculate optimal height per row
-    var optimalRowHeight = availableHeight / rowCount;
     
     console.log('Container height:', containerHeight);
     console.log('Header height:', headerHeight);
     console.log('Available height for rows:', availableHeight);
     console.log('Row count:', rowCount);
-    console.log('Optimal row height:', optimalRowHeight);
     
-    // Remove existing compactness classes
+    // Remove any class-based sizing and use direct font-size control
     $table.removeClass('compact very-compact ultra-compact');
     
-    // Determine appropriate font size based on available row height
-    // Font size should be roughly 60-70% of row height for good readability
-    var targetFontSize = optimalRowHeight * 0.6;
+    // Start with a large font size and decrease until it fits
+    var startFontSize = 64; // Start at 64px (4rem)
+    var minFontSize = 16;   // Don't go below 16px (1rem)
+    var decrement = 1;      // Decrease by 5px each iteration
+    var currentFontSize = startFontSize;
     
-    console.log('Target font size:', targetFontSize + 'px');
+    while (currentFontSize >= minFontSize) {
+        // Apply font size directly to rows
+        $rows.css('font-size', currentFontSize + 'px');
+        
+        // Scale padding proportionally to font size
+        // At 64px font, use 12px padding (0.75rem)
+        // Scale linearly: padding = (font-size / 64) * 12
+        var scaledPadding = (currentFontSize / 64) * 12;
+        $rows.find('td').css('padding', scaledPadding + 'px');
+        
+        // Force a reflow to get accurate measurements
+        $tbody[0].offsetHeight;
+        
+        // Measure actual tbody height
+        var tbodyHeight = $tbody.outerHeight();
+        
+        console.log('Trying font-size:', currentFontSize + 'px, padding:', scaledPadding.toFixed(2) + 'px, tbody height:', tbodyHeight);
+        
+        // Check if it fits
+        if (tbodyHeight <= availableHeight) {
+            console.log('Content fits with font-size:', currentFontSize + 'px, padding:', scaledPadding.toFixed(2) + 'px');
+            break;
+        }
+        
+        // Try next smaller size
+        currentFontSize -= decrement;
+    }
     
-    // Apply appropriate class based on calculated font size
-    if (targetFontSize >= 64) { // 4rem at 16px base
-        // Use default (4rem)
-        console.log('Using default size');
-    } else if (targetFontSize >= 35) { // ~2.2rem
-        $table.addClass('compact');
-        console.log('Using compact');
-    } else if (targetFontSize >= 27) { // ~1.7rem
-        $table.addClass('very-compact');
-        console.log('Using very-compact');
-    } else {
-        $table.addClass('ultra-compact');
-        console.log('Using ultra-compact');
+    // If even the smallest size doesn't fit, we'll keep the minimum
+    if (currentFontSize < minFontSize) {
+        console.log('Using minimum font-size:', minFontSize + 'px - content may still overflow');
+        $rows.css('font-size', minFontSize + 'px');
+        var minPadding = (minFontSize / 64) * 12;
+        $rows.find('td').css('padding', minPadding + 'px');
     }
 }
 function checkAllGreen() {
