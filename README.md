@@ -1,4 +1,4 @@
-# RaceReady
+# Race Ready
 
 **Collaborative Checklist System for Racing Events**
 
