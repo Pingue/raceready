@@ -533,6 +533,32 @@ def handle_toggle_state_by_normalised(data):
         log.error("Error toggling state by normalised_index", error=str(e))
         emit('error', 'Internal server error')
 
+@socketio.on('toggle_state_by_title')
+def handle_toggle_state_by_title(data):
+    """WebSocket handler for toggling state by action title/name."""
+    log.info("Toggling state by title", data=data)
+    title = data.get('title')
+    if not title:
+        emit('error', 'Missing title')
+        return
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('SELECT id, status FROM actions WHERE text = ? AND checklist_id = ?', (title, get_current_checklist_id()))
+        result = cur.fetchone()
+        
+        if result is None:
+            con.close()
+            emit('error', 'Action not found')
+            return
+        
+        action_id, current_status = result
+        action = toggle_state_logic(action_id)
+        emit('success', action)
+    except Exception as e:
+        log.error("Error toggling state by title", error=str(e))
+        emit('error', 'Internal server error')
+
 @socketio.on('set_checklist')
 def handle_set_checklist(data):
     """WebSocket handler for setting the current checklist."""
