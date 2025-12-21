@@ -559,6 +559,89 @@ def handle_toggle_state_by_title(data):
         log.error("Error toggling state by title", error=str(e))
         emit('error', 'Internal server error')
 
+@socketio.on('set_status_by_title')
+def handle_set_status_by_title(data):
+    """WebSocket handler for setting status by action title/name."""
+    log.info("Setting status by title", data=data)
+    title = data.get('title')
+    status = data.get('status')
+    
+    if not title:
+        emit('error', 'Missing title')
+        return
+    if status is None:
+        emit('error', 'Missing status')
+        return
+    
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute('SELECT id FROM actions WHERE text = ? AND checklist_id = ?', (title, get_current_checklist_id()))
+        result = cur.fetchone()
+        
+        if result is None:
+            con.close()
+            emit('error', 'Action not found')
+            return
+        
+        action_id = result[0]
+        new_status = 1 if status else 0
+        
+        cur.execute('UPDATE actions SET status = ? WHERE id = ?', (new_status, action_id))
+        con.commit()
+        cur.execute('SELECT * FROM actions WHERE id = ?', (action_id,))
+        action = cursortodict(cur)[0]
+        con.close()
+        
+        update_all_clients(data=action)
+        emit('success', action)
+    except Exception as e:
+        log.error("Error setting status by title", error=str(e))
+        emit('error', 'Internal server error')
+
+@socketio.on('set_status_by_normalised_id')
+def handle_set_status_by_normalised_id(data):
+    """WebSocket handler for setting status by normalised_index."""
+    log.info("Setting status by normalised_index", data=data)
+    normalised_index = data.get('normalised_index')
+    status = data.get('status')
+    
+    if not normalised_index:
+        emit('error', 'Missing normalised_index')
+        return
+    if status is None:
+        emit('error', 'Missing status')
+        return
+    
+    try:
+        con = get_db_connection()
+        cur = con.cursor()
+        cur.execute(
+            'SELECT id FROM actions WHERE checklist_id = ? ORDER BY "order" LIMIT 1 OFFSET ?',
+            (get_current_checklist_id(), int(normalised_index) - 1)
+        )
+        result = cur.fetchone()
+        
+        if result is None:
+            con.close()
+            emit('error', 'Action not found')
+            return
+        
+        action_id = result[0]
+        new_status = 1 if status else 0
+        
+        cur.execute('UPDATE actions SET status = ? WHERE id = ?', (new_status, action_id))
+        con.commit()
+        cur.execute('SELECT * FROM actions WHERE id = ?', (action_id,))
+        action = cursortodict(cur)[0]
+        con.close()
+        
+        update_all_clients(data=action)
+        emit('success', action)
+    except Exception as e:
+        log.error("Error setting status by normalised_index", error=str(e))
+        emit('error', 'Internal server error')
+
 @socketio.on('set_checklist')
 def handle_set_checklist(data):
     """WebSocket handler for setting the current checklist."""
