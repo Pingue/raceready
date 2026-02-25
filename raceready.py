@@ -13,6 +13,13 @@ socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=
 log = structlog.get_logger()
 current_checklist_id = None  # Will be set on first access
 
+def ensure_db_file_exists(path):
+    db_dir = os.path.dirname(path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    if not os.path.exists(path):
+        open(path, 'a').close()
+
 def get_current_checklist_id():
     """Get the current checklist ID, ensuring it exists in the database."""
     global current_checklist_id
@@ -42,6 +49,7 @@ def cursortodict(cursor):
     return data
 
 def get_db_connection():
+    ensure_db_file_exists(db_path)
     con = sqlite3.connect(db_path)
     con.row_factory = sqlite3.Row
     # Create checklists table if it doesn't exist
@@ -836,6 +844,10 @@ def handle_move_checklist_down(data):
     except Exception as e:
         log.error("Error moving checklist down", error=str(e))
         emit('error', 'Internal server error')
+
+# Ensure DB file and schema exist on startup
+startup_con = get_db_connection()
+startup_con.close()
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
