@@ -189,3 +189,9 @@ For issues, feature requests, or questions:
 ---
 
 **RaceReady** - Making event preparation seamless and collaborative.
+
+## AI Disclaimer
+
+Parts of this project have been AI assisted - while most of the code has been reviewed by a human, there are parts outside my expertise. Further human review would be appreciated.
+
+Claude code is configured to assist with PRs to this repo.
