@@ -408,10 +408,12 @@ def handle_delete(data):
         emit('error', 'Missing id')
         return
     con = get_db_connection()
-    cur = con.cursor()
-    cur.execute('DELETE FROM actions WHERE id = ?', (data['id'],))
-    con.commit()
-    con.close()
+    try:
+        cur = con.cursor()
+        cur.execute('DELETE FROM actions WHERE id = ?', (data['id'],))
+        con.commit()
+    finally:
+        con.close()
     emit('deleted', {'id': data['id']}, broadcast=True)
 
 @socketio.on('reset_all')
