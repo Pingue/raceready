@@ -8,7 +8,12 @@ import os
 import sqlite3
 
 app = Flask(__name__)
-db_path = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'db.sqlite3'))
+
+def _default_db_path() -> str:
+    """Return the default DB path: <script_dir>/data/db.sqlite3."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'db.sqlite3')
+
+db_path = os.environ.get('DB_PATH', _default_db_path())
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 log = structlog.get_logger()
 current_checklist_id = None  # Will be set on first access

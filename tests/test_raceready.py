@@ -86,14 +86,13 @@ class TestDbMigration:
         assert "notes" in columns
 
     def test_default_db_path_is_not_slash_data(self):
-        """The default DB path must not be the old read-only /data location."""
-        # Re-derive the default the same way the module does, without relying
-        # on the monkeypatched value set by patch_db.
+        """_default_db_path() must return a script-relative path, not /data/db.sqlite3."""
         import os
-        script_dir = os.path.dirname(os.path.abspath(raceready.__file__))
-        default = os.path.join(script_dir, "data", "db.sqlite3")
-        assert not default.startswith("/data/db.sqlite3")
-        assert "raceready" in default or "data" in default
+        default = raceready._default_db_path()
+        assert default != '/data/db.sqlite3'
+        assert not default.startswith('/data/')
+        assert default.endswith(os.path.join('data', 'db.sqlite3'))
+        assert os.path.isabs(default)
 
 
 # ---------------------------------------------------------------------------
