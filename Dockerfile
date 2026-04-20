@@ -15,6 +15,13 @@ RUN apk update && apk add git
 # copy every content from the local file to the image
 COPY . /app
 
+# Create the default data directory so the DB is writable without a volume mount.
+# Override the location at runtime with: -e DB_PATH=/your/path/db.sqlite3
+# Mount a volume here for persistence:  -v /host/data:/app/data
+RUN mkdir -p /app/data
+
+VOLUME ["/app/data"]
+
 # configure the container to run in an executed manner
 ENTRYPOINT [ "python" ]
 
