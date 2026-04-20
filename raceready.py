@@ -8,7 +8,7 @@ import os
 import sqlite3
 
 app = Flask(__name__)
-db_path = os.environ.get('DB_PATH', '/data/db.sqlite3')
+db_path = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'db.sqlite3'))
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 log = structlog.get_logger()
 current_checklist_id = None  # Will be set on first access
@@ -250,19 +250,6 @@ def toggle_by_normalised_id():
     update_all_clients(data=updated_action)
     return jsonify({'success': True, 'data': updated_action}), 200
 
-@socketio.on('delete')
-def handle_delete(data):
-    log.info("Deleting", data=data)
-    con = get_db_connection()
-    cur = con.cursor()
-    if 'id' not in data:
-        emit('error', 'Missing id')
-        return
-    cur.execute('DELETE FROM actions WHERE id = ?', (data['id'],))
-    con.commit()
-    emit('deleted', data['id'], broadcast=True)
-    update_all_clients()
-
 @socketio.on('save')
 def handle_save(data):
     log.info("Saving", data=data)
@@ -417,13 +404,16 @@ def handle_message():
 @socketio.on('delete')
 def handle_delete(data):
     log.info("Deleting", data=data)
-    con = get_db_connection()
-    cur = con.cursor()
     if 'id' not in data:
         emit('error', 'Missing id')
         return
-    cur.execute('DELETE FROM actions WHERE id = ?', (data['id'],))
-    con.commit()
+    con = get_db_connection()
+    try:
+        cur = con.cursor()
+        cur.execute('DELETE FROM actions WHERE id = ?', (data['id'],))
+        con.commit()
+    finally:
+        con.close()
     emit('deleted', {'id': data['id']}, broadcast=True)
 
 @socketio.on('reset_all')
