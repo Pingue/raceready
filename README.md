@@ -2,7 +2,7 @@
 
 [![Docker Build](https://github.com/Pingue/raceready/actions/workflows/docker_build.yml/badge.svg)](https://github.com/Pingue/raceready/actions/workflows/docker_build.yml)
 [![Docker Pulls](https://img.shields.io/docker/pulls/pingue/raceready)](https://hub.docker.com/r/pingue/raceready)
-[![Python 3.7+](https://img.shields.io/badge/python-3.7%2B-blue?logo=python&logoColor=white)](https://www.python.org)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org)
 [![License](https://img.shields.io/github/license/Pingue/raceready)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-assisted-blueviolet?logo=anthropic&logoColor=white)](https://claude.ai/claude-code)
 
@@ -32,7 +32,7 @@ RaceReady is a web-based collaborative checklist application designed for commun
 ## Quick Start
 
 ### Prerequisites
-- Python 3.7+
+- Python 3.8+
 - SQLite3
 - Modern web browser
 
