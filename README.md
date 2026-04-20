@@ -1,5 +1,11 @@
 # Race Ready
 
+[![Docker Build](https://github.com/Pingue/raceready/actions/workflows/docker_build.yml/badge.svg)](https://github.com/Pingue/raceready/actions/workflows/docker_build.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/pingue/raceready)](https://hub.docker.com/r/pingue/raceready)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org)
+[![License](https://img.shields.io/github/license/Pingue/raceready)](LICENSE)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-assisted-blueviolet?logo=anthropic&logoColor=white)](https://claude.ai/claude-code)
+
 **Collaborative Checklist System for Racing Events**
 
 RaceReady is a web-based collaborative checklist application designed for communicating between teams on large events. It was developed for the GT World Series eSports events, however is flexible enough to be used for various types of events. It provides real-time synchronization of checklist items across multiple devices and integrates seamlessly with Companion for streamlined workflow management.
@@ -26,7 +32,7 @@ RaceReady is a web-based collaborative checklist application designed for commun
 ## Quick Start
 
 ### Prerequisites
-- Python 3.7+
+- Python 3.8+
 - SQLite3
 - Modern web browser
 
@@ -60,13 +66,13 @@ RaceReady is a web-based collaborative checklist application designed for commun
 ### Docker Deployment from dockerhub
 ```bash
 docker pull pingue/raceready:latest
-docker run -p 5000:5000 -v ./data:/data pingue/raceready:latest
+docker run -p 5000:5000 -v ./data:/app/data pingue/raceready:latest
 ```
 
 ## Configuration
 
 ### Environment Variables
-- `DB_PATH`: Path to SQLite database file (default: `/data/db.sqlite3`)
+- `DB_PATH`: Path to SQLite database file (default: `./data/db.sqlite3` relative to the script)
 
 ### Database Setup
 The application automatically creates the necessary database tables on first run:
@@ -158,7 +164,7 @@ echo .dump | sudo sqlite3 data/db.sqlite3 | sudo sqlite3 data/db2.sqlite3 && sud
 ### Docker Deployment
 ```bash
 docker build -t raceready .
-docker run -p 5000:5000 -v ./data:/data raceready
+docker run -p 5000:5000 -v ./data:/app/data raceready
 ```
 
 ### Production Considerations
