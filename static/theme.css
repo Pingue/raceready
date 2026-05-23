@@ -1,0 +1,130 @@
+/* Dark mode overrides — applied via .dark-mode class on <html> */
+
+html.dark-mode body {
+    background-color: #1a1a2e;
+    color: #e0e0e0;
+}
+
+html.dark-mode .navbar:not(.bg-danger) {
+    background-color: #16213e !important;
+    border-bottom: 1px solid #2d2d5e;
+}
+
+html.dark-mode .navbar h1,
+html.dark-mode .navbar h2 {
+    color: #e0e0e0;
+}
+
+html.dark-mode .footer {
+    background-color: #16213e !important;
+    border-top-color: #2d2d5e !important;
+}
+
+html.dark-mode .text-muted {
+    color: #9a9ab0 !important;
+}
+
+/* Bootstrap 5 table CSS variable overrides */
+html.dark-mode .table {
+    color: #e0e0e0;
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.05);
+    --bs-table-striped-color: #e0e0e0;
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.075);
+    --bs-table-hover-color: #e0e0e0;
+    border-color: #444;
+}
+
+html.dark-mode .table thead th {
+    background-color: #16213e;
+    border-color: #2d2d5e;
+    color: #c0c0d0;
+}
+
+html.dark-mode .form-select {
+    background-color: #2d2d5e;
+    color: #e0e0e0;
+    border-color: #555;
+}
+
+html.dark-mode .btn-outline-primary {
+    color: #6ea8fe;
+    border-color: #6ea8fe;
+}
+
+html.dark-mode .btn-outline-primary:hover {
+    background-color: #6ea8fe;
+    color: #000;
+}
+
+html.dark-mode .btn-outline-warning {
+    color: #ffc107;
+    border-color: #ffc107;
+}
+
+html.dark-mode .btn-outline-warning:hover {
+    background-color: #ffc107;
+    color: #000;
+}
+
+html.dark-mode .btn-outline-danger {
+    color: #ea868f;
+    border-color: #ea868f;
+}
+
+html.dark-mode .btn-outline-danger:hover {
+    background-color: #ea868f;
+    color: #000;
+}
+
+html.dark-mode .btn-outline-secondary {
+    color: #adb5bd;
+    border-color: #adb5bd;
+}
+
+html.dark-mode .btn-outline-secondary:hover {
+    background-color: #adb5bd;
+    color: #000;
+}
+
+html.dark-mode .btn-info {
+    color: #000;
+}
+
+html.dark-mode .dropdown-menu {
+    background-color: #2d2d5e;
+    border-color: #444;
+}
+
+html.dark-mode .dropdown-item {
+    color: #e0e0e0;
+}
+
+html.dark-mode .dropdown-item:hover,
+html.dark-mode .dropdown-item:focus {
+    background-color: #3d3d7e;
+    color: #fff;
+}
+
+html.dark-mode .dropdown-item.active {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+html.dark-mode input[type="text"],
+html.dark-mode input[type="number"],
+html.dark-mode textarea {
+    background-color: #2d2d5e;
+    color: #e0e0e0;
+    border-color: #555;
+}
+
+html.dark-mode .modal-content {
+    background-color: #1a1a2e;
+    color: #e0e0e0;
+    border-color: #444;
+}
+
+html.dark-mode .modal-header,
+html.dark-mode .modal-footer {
+    border-color: #444;
+}
