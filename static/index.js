@@ -186,7 +186,8 @@ function checkAllGreen() {
         }
     });
     if (allgreen) {
-        $('body').css('background-color', 'lightgreen');
+        var dark = document.documentElement.classList.contains('dark-mode');
+        $('body').css('background-color', dark ? '#1a4d2e' : 'lightgreen');
     } else {
         $('body').css('background-color', '');
     }
