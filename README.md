@@ -1,7 +1,7 @@
 # Race Ready
 
 [![Docker Build](https://github.com/Pingue/raceready/actions/workflows/docker_build.yml/badge.svg)](https://github.com/Pingue/raceready/actions/workflows/docker_build.yml)
-[![Docker Pulls](https://img.shields.io/docker/pulls/pingue/raceready)](https://hub.docker.com/r/pingue/raceready)
+[![Docker Image](https://img.shields.io/badge/docker-ghcr.io%2Fpingue%2Fraceready-blue?logo=docker)](https://github.com/Pingue/raceready/pkgs/container/raceready)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue?logo=python&logoColor=white)](https://www.python.org)
 [![License](https://img.shields.io/github/license/Pingue/raceready)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-assisted-blueviolet?logo=anthropic&logoColor=white)](https://claude.ai/claude-code)
@@ -63,10 +63,10 @@ RaceReady is a web-based collaborative checklist application designed for commun
    - Main interface: `http://localhost:5000`
    - Admin panel: `http://localhost:5000/admin`
 
-### Docker Deployment from dockerhub
+### Docker Deployment from GitHub Container Registry
 ```bash
-docker pull pingue/raceready:latest
-docker run -p 5000:5000 -v ./data:/app/data pingue/raceready:latest
+docker pull ghcr.io/pingue/raceready:latest
+docker run -p 5000:5000 -v ./data:/app/data ghcr.io/pingue/raceready:latest
 ```
 
 ## Configuration
