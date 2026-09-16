@@ -8,7 +8,12 @@ import os
 import sqlite3
 
 app = Flask(__name__)
-db_path = os.environ.get('DB_PATH', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'db.sqlite3'))
+
+def _default_db_path() -> str:
+    """Return the default DB path: <script_dir>/data/db.sqlite3."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'db.sqlite3')
+
+db_path = os.environ.get('DB_PATH', _default_db_path())
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 log = structlog.get_logger()
 current_checklist_id = None  # Will be set on first access
@@ -835,11 +840,12 @@ def handle_move_checklist_down(data):
         log.error("Error moving checklist down", error=str(e))
         emit('error', 'Internal server error')
 
-# Ensure DB file and schema exist on startup
-startup_con = get_db_connection()
-startup_con.close()
-
 if __name__ == "__main__":
+    # Ensure DB file and schema exist before the server starts accepting
+    # requests. Not needed when running under a WSGI server (gunicorn etc.)
+    # because get_db_connection() initialises the schema on the first request.
+    startup_con = get_db_connection()
+    startup_con.close()
     port = int(os.environ.get('PORT', 5000))
     print("app running")
     socketio.run(app, host="0.0.0.0", port=port)
