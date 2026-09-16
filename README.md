@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/github/license/Pingue/raceready)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-assisted-blueviolet?logo=anthropic&logoColor=white)](https://claude.ai/claude-code)
 
-**Collaborative Checklist System for Racing Events**
+**Collaborative Checklist System for Live Events**
 
 RaceReady is a web-based collaborative checklist application designed for communicating between teams on large events. It was developed for the GT World Series eSports events, however is flexible enough to be used for various types of events. It provides real-time synchronization of checklist items across multiple devices and integrates seamlessly with Companion for streamlined workflow management.
 
