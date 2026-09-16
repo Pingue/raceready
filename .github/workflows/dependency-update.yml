@@ -33,4 +33,4 @@ jobs:
             can't, revert that specific package's update and note why in the PR
             description. Commit the changes and open a pull request against main
             summarizing what was updated and why.
-          claude_args: '--allowed-tools "Bash(git:*),Bash(pip:*),Bash(pytest:*)"'
+          claude_args: '--allowedTools "Edit,Read,Write,Bash(git:*),Bash(pip:*),Bash(pytest:*)"'
