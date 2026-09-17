@@ -33,7 +33,6 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -48,7 +47,3 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number }}
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-
-      - name: Skip Claude review when auth is unavailable
-        if: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN == '' }}
-        run: echo "Skipping Claude review because CLAUDE_CODE_OAUTH_TOKEN is not available for this event."
